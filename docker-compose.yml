@@ -1,0 +1,65 @@
+# =============================================================
+# Docker Compose — Multi-Tenant Task Management System
+# Services: MySQL 8, Spring Boot Backend, React Frontend
+# =============================================================
+
+version: "3.8"
+
+services:
+  # --- MySQL Database ---
+  mysql:
+    image: mysql:8.0
+    container_name: taskmanager-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: taskdb
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - taskmanager-network
+
+  # --- Spring Boot Backend ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskmanager-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    networks:
+      - taskmanager-network
+
+  # --- React Frontend (Nginx) ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: taskmanager-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - taskmanager-network
+
+volumes:
+  mysql_data:
+
+networks:
+  taskmanager-network:
+    driver: bridge
